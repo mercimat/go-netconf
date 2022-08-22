@@ -98,6 +98,37 @@ func TestReceiveHello(t *testing.T) {
 	}
 }
 
+func TestReceive11(t *testing.T) {
+	tt := []struct {
+		name     string
+		input    string
+		expected []byte
+	}{
+		{
+			name:     "netconf11",
+			input:    "\n#4\n<rpc\n#18\n message-id=\"102\"\n\n#79\n     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n  <close-session/>\n</rpc>\n##\n",
+			expected: []byte("<rpc message-id=\"102\"\n     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n  <close-session/>\n</rpc>"),
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+
+			trans, _ := newTransportTest(tc.input)
+			trans.SetVersion("v1.1")
+
+			message, err := trans.Receive()
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			if !cmp.Equal(message, tc.expected) {
+				t.Errorf("unexpected hello message%s", cmp.Diff(message, tc.expected))
+			}
+		})
+	}
+}
+
 func TestSendHello(t *testing.T) {
 	tt := []struct {
 		name     string

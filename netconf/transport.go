@@ -9,10 +9,14 @@ package netconf
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 )
+
+var ErrMalformedChunk = errors.New("netconf: invalid chunk")
 
 const (
 	// msgSeperator is used to separate sent messages via NETCONF
@@ -140,6 +144,13 @@ func (t *TransportBasicIO) WaitForFunc(f func([]byte) (int, error)) ([]byte, err
 			}
 
 			if end > -1 {
+				if t.version == "v1.1" {
+					// end + len(msgSeperator_v11) is always lt len(buf)
+					end, err = parseChuncks(buf, end+len(msgSeperator_v11))
+					if err != nil {
+						return nil, err
+					}
+				}
 				out.Write(buf[0:end])
 				return out.Bytes(), nil
 			}
@@ -195,4 +206,38 @@ type ReadWriteCloser struct {
 // provided objects
 func NewReadWriteCloser(r io.Reader, w io.WriteCloser) *ReadWriteCloser {
 	return &ReadWriteCloser{r, w}
+}
+
+func parseChuncks(buf []byte, end int) (int, error) {
+	i := 0
+	length := 0
+	for i < end-1 {
+		if buf[i] != '\n' || buf[i+1] != '#' {
+			// looking for start of chunk delimiter \n#
+			i++
+			continue
+		}
+		j := i + 2
+		for j < end {
+			if buf[j] == '\n' {
+				break
+			}
+			j++
+		}
+		if buf[j-1] == '#' {
+			return length, nil
+		}
+		chunkSize, err := strconv.Atoi(string(buf[i+2 : j]))
+		if err != nil {
+			return length, err
+		}
+		startChunk := j + 1
+		endChunk := startChunk + chunkSize - 1
+		if endChunk > end {
+			return length, ErrMalformedChunk
+		}
+		length += copy(buf[length:], buf[startChunk:endChunk+1])
+		i = endChunk + 1
+	}
+	return length, nil
 }

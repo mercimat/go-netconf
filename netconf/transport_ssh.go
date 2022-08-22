@@ -68,7 +68,7 @@ func (t *TransportSSH) Close() error {
 //
 // config takes a ssh.ClientConfig connection. See documentation for
 // go.crypto/ssh for documenation.  There is a helper function SSHConfigPassword
-// thar returns a ssh.ClientConfig for simple username/password authentication
+// that returns a ssh.ClientConfig for simple username/password authentication
 func (t *TransportSSH) Dial(target string, config *ssh.ClientConfig) error {
 	if !strings.Contains(target, ":") {
 		target = fmt.Sprintf("%s:%d", target, sshDefaultPort)
